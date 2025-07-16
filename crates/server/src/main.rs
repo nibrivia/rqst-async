@@ -5,6 +5,17 @@ fn index(_req: Request) -> Response {
     Ok(Content::Html(content))
 }
 
+fn chat(_req: Request) -> Response {
+    match _req {
+        // TODO: Use actual HTTP error codes here instead
+        Request::Get => Ok(Content::Json("Malformed request".to_string())),
+        Request::Post(_msgs) => Ok(Content::Json("{\"messages\": [\"hi back\"]}".to_string())),
+    }
+}
+
 fn main() {
-    miniserve::Server::new().route("/", index).run()
+    miniserve::Server::new()
+        .route("/", index)
+        .route("/chat", chat)
+        .run()
 }
