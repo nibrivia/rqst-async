@@ -16,25 +16,26 @@ struct Messages {
 
 async fn make_response(input_json: String) -> Option<String> {
     // Parse
-    let mut messages: Messages = serde_json::from_str(&input_json).ok()?;
+    let data: Messages = serde_json::from_str(&input_json).ok()?;
 
     // Call async
     let response_index_fut = tokio::spawn(gen_random_number());
 
-    let mut messages_arc = Arc::new(messages);
-    let possible_responses_fut = tokio::spawn(query_chat(&messages_arc.messages));
+    let messages_arc = Arc::new(data);
+    let messages_clone = Arc::clone(&messages_arc);
+    let possible_responses_fut =
+        tokio::spawn(async move { query_chat(&messages_clone.messages).await });
 
     let (ix_res, responses_res) = join!(response_index_fut, possible_responses_fut);
 
     // Build response
     let mut possible_responses = responses_res.ok()?;
     let response_msg = possible_responses.remove(ix_res.ok()? % possible_responses.len());
-    Arc::<Messages>::get_mut(&mut messages_arc)?
-        .messages
-        .push(response_msg);
-    let response_json = serde_json::to_string(&(Arc::into_inner(messages_arc).unwrap())).ok()?;
 
-    return Some(response_json);
+    let mut res = Arc::into_inner(messages_arc)?;
+    res.messages.push(response_msg);
+
+    serde_json::to_string(&res).ok()
 }
 
 async fn chat(_req: Request) -> Response {
